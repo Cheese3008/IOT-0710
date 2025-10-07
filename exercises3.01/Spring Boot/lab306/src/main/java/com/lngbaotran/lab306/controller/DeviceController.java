@@ -36,22 +36,20 @@ public class DeviceController {
         Device device = deviceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("❌ Device not found: ID " + id));
 
-        // Cập nhật trạng thái trong database
-        device.setStatus(request.getCommand());
+        // Cập nhật trạng thái chung (ON/OFF)
+        device.setStatus(request.getCommand().toUpperCase());
         deviceRepository.save(device);
 
-        // Xác định topic MQTT (ưu tiên topic trong DB, nếu không thì mặc định)
+        // Xác định topic MQTT
         String topic = (device.getTopic() != null && !device.getTopic().isEmpty())
                 ? device.getTopic()
                 : "demo/room1/device/cmd";
 
-        // Tạo JSON lệnh theo định dạng mà ESP32 hiểu
-        // Ví dụ: {"light":"on"} hoặc {"fan":"off"}
+        // Tạo JSON payload gửi cho ESP32
         String payload = "{\"" + request.getTarget() + "\":\"" + request.getCommand().toLowerCase() + "\"}";
 
         // Publish tới MQTT Broker
         mqttGateway.sendToMqtt(payload, topic);
-
         System.out.println("🚀 [MQTT] Sent to topic [" + topic + "]: " + payload);
 
         return "✅ Command sent to " + device.getName() +

@@ -1,28 +1,34 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <DHT.h>
+#include <ArduinoJson.h>  // ✅ thêm thư viện để parse JSON
 
 // ====== CONFIG ======
-const char* ssid = "CONHAMA";
-const char* password = "22042004";
+const char* ssid = "Duc Tri";
+const char* password = "22091977";
 
 const char* mqtt_server = "broker.hivemq.com";
 const int mqtt_port = 1883;
 
 #define TOPIC_NS "demo/room1"
-#define DEVICE_ID "esp32_sim_device"
+#define DEVICE_ID "esp32_real_device"
 
 // ====== GPIO ======
-#define LED_PIN 2       // LED on-board (Light)
-#define DHTPIN 4        // Chân DATA của DHT22 nối vào GPIO4
-#define DHTTYPE DHT22   // Loại cảm biến
+#define LED_PIN 5
+#define DHTPIN 4
+#define DHTTYPE DHT22
+
+// --- L298N ---
+#define IN1_PIN 26
+#define IN2_PIN 27
+#define ENA_PIN 25
 
 // ====== OBJECTS ======
 WiFiClient espClient;
 PubSubClient client(espClient);
 DHT dht(DHTPIN, DHTTYPE);
 
-// ====== DEVICE STATE ======
+// ====== STATE ======
 String light_state = "off";
 String fan_state = "off";
 
@@ -47,7 +53,7 @@ void reconnect() {
       Serial.println("✅ Connected!");
       client.subscribe(TOPIC_NS "/device/cmd");
 
-      // Publish online status
+      // Gửi trạng thái online
       String onlineMsg = "{\"online\":true}";
       client.publish(TOPIC_NS "/sys/online", onlineMsg.c_str(), true);
     } else {
@@ -59,50 +65,63 @@ void reconnect() {
   }
 }
 
-// ====== Giả lập quạt (chỉ in ra Serial, on/off) ======
-void runFan(String mode) {
-  if (mode == "on") {
+// ====== Fan Control ======
+void controlFan(String cmd) {
+  if (cmd == "on") {
+    digitalWrite(IN1_PIN, HIGH);
+    digitalWrite(IN2_PIN, LOW);
+    digitalWrite(ENA_PIN, HIGH);
     fan_state = "on";
-    Serial.println("🌀 Fan turned ON");
+    Serial.println("🌀 Fan: ON");
   } else {
+    digitalWrite(IN1_PIN, LOW);
+    digitalWrite(IN2_PIN, LOW);
+    digitalWrite(ENA_PIN, LOW);
     fan_state = "off";
-    Serial.println("🌀 Fan turned OFF");
+    Serial.println("🌀 Fan: OFF");
   }
 }
 
-// ====== Handle incoming MQTT commands ======
+// ====== Handle incoming MQTT ======
 void callback(char* topic, byte* payload, unsigned int length) {
   String message;
   for (int i = 0; i < length; i++) message += (char)payload[i];
-
   Serial.print("📩 Received [");
   Serial.print(topic);
   Serial.print("]: ");
   Serial.println(message);
 
   if (String(topic) == TOPIC_NS "/device/cmd") {
-    // Light control
-    if (message.indexOf("light") >= 0) {
-      if (message.indexOf("on") >= 0) {
-        light_state = "on";
+    StaticJsonDocument<200> doc;
+    DeserializationError error = deserializeJson(doc, message);
+
+    if (error) {
+      Serial.println("⚠️ JSON parse error!");
+      return;
+    }
+
+    // --- Light control ---
+    if (doc.containsKey("light")) {
+      String val = doc["light"].as<String>();
+      if (val == "on") {
         digitalWrite(LED_PIN, HIGH);
-      } else if (message.indexOf("off") >= 0) {
-        light_state = "off";
+        light_state = "on";
+      } else {
         digitalWrite(LED_PIN, LOW);
+        light_state = "off";
       }
       Serial.println("💡 Light: " + light_state);
     }
 
-    // Fan control (chỉ on/off)
-    if (message.indexOf("fan") >= 0) {
-      if (message.indexOf("on") >= 0) runFan("on");
-      else if (message.indexOf("off") >= 0) runFan("off");
+    // --- Fan control ---
+    if (doc.containsKey("fan")) {
+      String val = doc["fan"].as<String>();
+      controlFan(val);
     }
 
-    // Gửi lại trạng thái thật của thiết bị
+    // --- Gửi lại trạng thái thật ---
     String stateMsg = "{\"light\":\"" + light_state + "\",\"fan\":\"" + fan_state + "\"}";
     client.publish(TOPIC_NS "/device/state", stateMsg.c_str(), true);
-    Serial.println("📤 Published state: " + stateMsg);
   }
 }
 
@@ -112,11 +131,9 @@ void publish_sensor_data() {
   float hum = dht.readHumidity();
   int light = random(100, 800);
 
-  // Nếu cảm biến không có thật, giả lập giá trị
   if (isnan(temp) || isnan(hum)) {
-    temp = random(25, 35);
-    hum = random(40, 70);
-    Serial.println("⚠️ DHT22 not detected → using simulated data.");
+    Serial.println("⚠️ Lỗi đọc cảm biến DHT22!");
+    return;
   }
 
   String payload = "{\"ts\":" + String((unsigned long)time(NULL)) +
@@ -130,9 +147,8 @@ void publish_sensor_data() {
 // ====== Publish system info ======
 void publish_system_info() {
   int rssi = WiFi.RSSI();
-  String firmware = "v1.0.4-fanfix";
+  String firmware = "v1.0.3";
   unsigned long now = millis() / 1000;
-
   String sysPayload = "{\"wifi_signal\":" + String(rssi) +
                       ",\"firmware\":\"" + firmware +
                       "\",\"uptime\":" + String(now) + "}";
@@ -144,7 +160,12 @@ void publish_system_info() {
 void setup() {
   Serial.begin(115200);
   pinMode(LED_PIN, OUTPUT);
+  pinMode(IN1_PIN, OUTPUT);
+  pinMode(IN2_PIN, OUTPUT);
+  pinMode(ENA_PIN, OUTPUT);
+
   digitalWrite(LED_PIN, LOW);
+  controlFan("off");
 
   dht.begin();
   setup_wifi();

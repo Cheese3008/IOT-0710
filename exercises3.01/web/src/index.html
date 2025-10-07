@@ -3,10 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>IoT Lab Monitor — Real-time Dashboard</title>
+    <title>Final report of IOT practice subject</title>
 
+    <!-- Libraries -->
     <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script
+      src="https://kit.fontawesome.com/a4f5b94c2e.js"
+      crossorigin="anonymous"
+    ></script>
 
     <style>
       :root {
@@ -25,9 +30,10 @@
         color: #e6eef8;
       }
 
+      /* BODY */
       body {
         margin: 0;
-        font-family: Inter, system-ui;
+        font-family: "Inter", system-ui;
         background: var(--bg);
         color: #0f1724;
         display: flex;
@@ -38,6 +44,7 @@
         transition: background 0.5s ease;
       }
 
+      /* TOP BAR */
       .topbar {
         width: 100%;
         max-width: 1200px;
@@ -46,25 +53,54 @@
         align-items: center;
         margin-bottom: 16px;
       }
+
       .brand {
         display: flex;
         align-items: center;
         gap: 10px;
       }
-      .logo {
-        width: 44px;
-        height: 44px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, var(--accent), #a78bfa);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 18px;
-        box-shadow: 0 4px 10px rgba(99, 102, 241, 0.4);
-      }
 
+      .logo {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #fde68a, #facc15, #fbbf24);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.4),
+              inset 0 0 10px rgba(255, 255, 255, 0.6);
+  animation: floatGlow 6s ease-in-out infinite;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.3s ease;
+  flex-shrink: 0; /* giúp logo không co lại khi cửa sổ nhỏ */
+}
+
+.logo:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.6),
+              inset 0 0 12px rgba(255, 255, 255, 0.8);
+  filter: brightness(1.1);
+  animation: cheeseShake 0.4s ease-in-out;
+}
+
+/* Hiệu ứng phô mai nổi nhẹ (float) */
+@keyframes floatGlow {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(2deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+/* 🧀 Jerry rung nhẹ khi hover */
+@keyframes cheeseShake {
+  0%, 100% { transform: translateY(-3px) rotate(0deg); }
+  25% { transform: translateY(-2px) rotate(3deg); }
+  50% { transform: translateY(-4px) rotate(-3deg); }
+  75% { transform: translateY(-2px) rotate(2deg); }
+}
+
+      /* BUTTONS */
       .btn {
         background: linear-gradient(135deg, var(--accent), #8b5cf6);
         color: white;
@@ -75,6 +111,8 @@
         font-weight: 600;
         transition: all 0.25s ease;
         box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+        position: relative;
+        overflow: hidden;
       }
       .btn:hover {
         transform: translateY(-1px);
@@ -84,6 +122,25 @@
       .btn:active {
         transform: scale(0.97);
       }
+
+      /* Ripple effect */
+      .btn::after {
+        content: "";
+        position: absolute;
+        width: 0;
+        height: 0;
+        top: 50%;
+        left: 50%;
+        background: rgba(255, 255, 255, 0.4);
+        border-radius: 100%;
+        transform: translate(-50%, -50%);
+        transition: width 0.3s ease, height 0.3s ease;
+      }
+      .btn:active::after {
+        width: 200%;
+        height: 200%;
+      }
+
       .btn.ghost {
         background: transparent;
         color: var(--accent);
@@ -99,6 +156,7 @@
         gap: 18px;
       }
 
+      /* CARDS */
       .grid {
         display: grid;
         gap: 16px;
@@ -106,14 +164,20 @@
       }
       .card {
         background: var(--card);
-        border-radius: 14px;
+        border-radius: 16px;
         padding: 16px;
         box-shadow: 0 10px 30px rgba(2, 6, 23, 0.06);
-        backdrop-filter: blur(6px);
-        transition: transform 0.2s ease;
+        backdrop-filter: blur(8px);
+        transition: all 0.3s ease;
+        transform-style: preserve-3d;
       }
       .card:hover {
-        transform: translateY(-3px);
+        transform: translateY(-5px) rotateX(2deg);
+      }
+
+      .card i {
+        color: var(--accent);
+        margin-right: 6px;
       }
 
       .metric-row {
@@ -122,10 +186,12 @@
         align-items: center;
         padding: 6px 0;
       }
+
       .metric-title {
         color: var(--muted);
         font-weight: 600;
       }
+
       .metric-value {
         font-weight: 700;
         font-size: 1.05rem;
@@ -179,68 +245,159 @@
   <body data-theme="light">
     <div class="topbar">
       <div class="brand">
-        <div class="logo">I</div>
+        <div class="logo">🐭</div>
         <div>
-          <h1 style="margin: 0; font-size: 1.3rem">IoT Lab Monitor</h1>
+          <h1 style="margin: 0; font-size: 1.3rem">
+            Final report of IOT practice subject
+          </h1>
           <div style="font-size: 0.85rem; color: var(--muted)">
-            Real-time dashboard
+            Team: Gia Huy & Bảo Trân 🚀
           </div>
         </div>
       </div>
-      <button id="toggleTheme" class="btn ghost">Dark</button>
+      <button id="toggleTheme" class="btn ghost">
+        <i class="fas fa-moon"></i> Dark
+      </button>
     </div>
 
     <div class="main">
       <div class="grid">
         <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
             <div>
-              <strong>Broker</strong>
-              <div style="font-size: 0.85rem; color: var(--muted)">Connection</div>
+              <strong><i class="fas fa-network-wired"></i> Broker</strong>
+              <div style="font-size: 0.85rem; color: var(--muted)">
+                Connection
+              </div>
             </div>
-            <div id="brokerPill" class="status-pill disconnected">Disconnected</div>
+            <div id="brokerPill" class="status-pill disconnected">
+              Disconnected
+            </div>
           </div>
         </div>
 
         <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            "
+          >
             <div>
-              <strong>Device</strong>
-              <div style="font-size: 0.85rem; color: var(--muted)">ESP32 status</div>
+              <strong><i class="fas fa-microchip"></i> Device</strong>
+              <div style="font-size: 0.85rem; color: var(--muted)">
+                ESP32 status
+              </div>
             </div>
             <div id="devicePill" class="status-pill offline">Offline</div>
           </div>
           <div style="margin-top: 12px">
-            <div class="metric-row"><div class="metric-title">Firmware</div><div id="fwVal" class="metric-value">--</div></div>
-            <div class="metric-row"><div class="metric-title">WiFi</div><div id="rssiVal" class="metric-value">-- dBm</div></div>
-            <div class="metric-row"><div class="metric-title">Uptime</div><div id="uptimeVal" class="metric-value">-- s</div></div>
+            <div class="metric-row">
+              <div class="metric-title">⚙️ Firmware</div>
+              <div id="fwVal" class="metric-value">--</div>
+            </div>
+            <div class="metric-row">
+              <div class="metric-title">📶 WiFi</div>
+              <div id="rssiVal" class="metric-value">-- dBm</div>
+            </div>
+            <div class="metric-row">
+              <div class="metric-title">⏱️ Uptime</div>
+              <div id="uptimeVal" class="metric-value">-- s</div>
+            </div>
           </div>
         </div>
 
         <div class="card">
-          <div><strong>Sensors</strong><div style="font-size: 0.85rem; color: var(--muted)">Latest values</div></div>
+          <div>
+            <strong><i class="fas fa-thermometer-half"></i> Sensors</strong>
+            <div style="font-size: 0.85rem; color: var(--muted)">
+              Latest values
+            </div>
+          </div>
           <div style="margin-top: 12px">
-            <div id="tempRow" class="metric-row"><div class="metric-title">Temperature</div><div id="tempVal" class="metric-value">-- °C</div></div>
-            <div id="humRow" class="metric-row"><div class="metric-title">Humidity</div><div id="humVal" class="metric-value">-- %</div></div>
-            <div id="luxRow" class="metric-row"><div class="metric-title">Light</div><div id="luxVal" class="metric-value">-- lux</div></div>
+            <div id="tempRow" class="metric-row">
+              <div class="metric-title">🌡️ Temperature</div>
+              <div id="tempVal" class="metric-value">-- °C</div>
+            </div>
+            <div id="humRow" class="metric-row">
+              <div class="metric-title">💧 Humidity</div>
+              <div id="humVal" class="metric-value">-- %</div>
+            </div>
+            <div id="luxRow" class="metric-row">
+              <div class="metric-title">☀️ Light</div>
+              <div id="luxVal" class="metric-value">-- lux</div>
+            </div>
           </div>
         </div>
 
         <div class="card">
-          <div><strong>Controls</strong><div style="font-size: 0.85rem; color: var(--muted)">Light & Fan</div></div>
-          <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>Light</div>
+          <div>
+            <strong><i class="fas fa-sliders-h"></i> Controls</strong>
+            <div style="font-size: 0.85rem; color: var(--muted)">
+              Light & Fan
+            </div>
+          </div>
+          <div
+            style="
+              margin-top: 12px;
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <div><i class="fas fa-lightbulb"></i> 💡Light</div>
               <div style="display: flex; align-items: center; gap: 8px">
-                <div id="lightState" style="padding: 8px 12px; border-radius: 10px; background: var(--muted); color: white; font-weight: 700;">OFF</div>
+                <div
+                  id="lightState"
+                  style="
+                    padding: 8px 12px;
+                    border-radius: 10px;
+                    background: var(--muted);
+                    color: white;
+                    font-weight: 700;
+                  "
+                >
+                  OFF
+                </div>
                 <button id="btnLightToggle" class="btn">Toggle</button>
               </div>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>Fan</div>
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <div><i class="fas fa-fan"></i> 🌀 Fan</div>
               <div style="display: flex; align-items: center; gap: 8px">
-                <div id="fanState" style="padding: 8px 12px; border-radius: 10px; background: var(--muted); color: white; font-weight: 700;">OFF</div>
+                <div
+                  id="fanState"
+                  style="
+                    padding: 8px 12px;
+                    border-radius: 10px;
+                    background: var(--muted);
+                    color: white;
+                    font-weight: 700;
+                  "
+                >
+                  OFF
+                </div>
                 <button id="btnFanToggle" class="btn">Toggle</button>
               </div>
             </div>
@@ -250,7 +407,12 @@
 
       <!-- Biểu đồ -->
       <div class="card">
-        <div><strong>Sensor Chart</strong><div style="font-size: 0.85rem; color: var(--muted)">Temp / Humidity / Light (20 samples)</div></div>
+        <div>
+          <strong><i class="fas fa-chart-line"></i> Sensor Chart</strong>
+          <div style="font-size: 0.85rem; color: var(--muted)">
+            Temp / Humidity / Light (20 samples)
+          </div>
+        </div>
         <div class="chart-wrap"><canvas id="sensorChart"></canvas></div>
       </div>
     </div>
@@ -296,9 +458,24 @@
           data: {
             labels: data.labels,
             datasets: [
-              { label: "Temp (°C)", data: data.temp, borderColor: "#ef4444", tension: 0.3 },
-              { label: "Humidity (%)", data: data.hum, borderColor: "#2563eb", tension: 0.3 },
-              { label: "Light (lux)", data: data.lux, borderColor: "#f59e0b", tension: 0.3 },
+              {
+                label: "Temp (°C)",
+                data: data.temp,
+                borderColor: "#ef4444",
+                tension: 0.3,
+              },
+              {
+                label: "Humidity (%)",
+                data: data.hum,
+                borderColor: "#2563eb",
+                tension: 0.3,
+              },
+              {
+                label: "Light (lux)",
+                data: data.lux,
+                borderColor: "#f59e0b",
+                tension: 0.3,
+              },
             ],
           },
           options: {
@@ -319,14 +496,18 @@
         });
       }
       function connect() {
-        client = mqtt.connect(MQTT_URL, { clientId: "web_" + Math.random().toString(16).slice(2, 8) });
+        client = mqtt.connect(MQTT_URL, {
+          clientId: "web_" + Math.random().toString(16).slice(2, 8),
+        });
         client.on("connect", () => {
           brokerPill.textContent = "Connected";
           brokerPill.className = "status-pill connected";
           Object.values(topics).forEach((t) => client.subscribe(t));
         });
         client.on("message", (topic, msg) => {
-          try { handleIncoming(topic, JSON.parse(msg.toString())); } catch (e) {}
+          try {
+            handleIncoming(topic, JSON.parse(msg.toString()));
+          } catch (e) {}
         });
         client.on("close", () => {
           brokerPill.textContent = "Disconnected";
@@ -336,17 +517,30 @@
 
       function handleIncoming(topic, json) {
         if (topic === topics.sensor) {
-          const t = parseFloat(json.temp_c), h = parseFloat(json.humidity), l = parseFloat(json.light_lux);
+          const t = parseFloat(json.temp_c),
+            h = parseFloat(json.humidity),
+            l = parseFloat(json.light_lux);
           const time = new Date().toLocaleTimeString();
-          data.labels.push(time); data.temp.push(t); data.hum.push(h); data.lux.push(l);
-          if (data.labels.length > MAX_POINTS) { data.labels.shift(); data.temp.shift(); data.hum.shift(); data.lux.shift(); }
+          data.labels.push(time);
+          data.temp.push(t);
+          data.hum.push(h);
+          data.lux.push(l);
+          if (data.labels.length > MAX_POINTS) {
+            data.labels.shift();
+            data.temp.shift();
+            data.hum.shift();
+            data.lux.shift();
+          }
           tempVal.textContent = t.toFixed(1) + " °C";
           humVal.textContent = h.toFixed(1) + " %";
           luxVal.textContent = l + " lux";
-          flash(tempVal.parentElement); flash(humVal.parentElement); flash(luxVal.parentElement);
+          flash(tempVal.parentElement);
+          flash(humVal.parentElement);
+          flash(luxVal.parentElement);
           chart.update();
         } else if (topic === topics.device) {
-          const light = json.light, fan = json.fan;
+          const light = json.light,
+            fan = json.fan;
           updateToggleState(lightState, light);
           updateToggleState(fanState, fan);
         } else if (topic === topics.info) {
@@ -362,24 +556,40 @@
 
       function updateToggleState(el, state) {
         el.textContent = state.toUpperCase();
-        el.style.background = state !== "off" ? "var(--success)" : "var(--muted)";
+        el.style.background =
+          state !== "off" ? "var(--success)" : "var(--muted)";
       }
 
       btnLightToggle.onclick = () => {
         if (client)
-          client.publish(topics.cmd, JSON.stringify({ light: lightState.textContent === "ON" ? "off" : "on" }));
+          client.publish(
+            topics.cmd,
+            JSON.stringify({
+              light: lightState.textContent === "ON" ? "off" : "on",
+            })
+          );
       };
 
       btnFanToggle.onclick = () => {
         if (client)
-          client.publish(topics.cmd, JSON.stringify({ fan: fanState.textContent === "ON" ? "off" : "on" }));
+          client.publish(
+            topics.cmd,
+            JSON.stringify({
+              fan: fanState.textContent === "ON" ? "off" : "on",
+            })
+          );
       };
 
       toggleTheme.onclick = () => {
         const root = document.body;
         const cur = root.getAttribute("data-theme");
-        if (cur === "dark") { root.setAttribute("data-theme", "light"); toggleTheme.textContent = "Dark"; }
-        else { root.setAttribute("data-theme", "dark"); toggleTheme.textContent = "Light"; }
+        if (cur === "dark") {
+          root.setAttribute("data-theme", "light");
+          toggleTheme.innerHTML = '<i class="fas fa-moon"></i> Dark';
+        } else {
+          root.setAttribute("data-theme", "dark");
+          toggleTheme.innerHTML = '<i class="fas fa-sun"></i> Light';
+        }
       };
 
       window.addEventListener("load", () => {
@@ -389,3 +599,5 @@
     </script>
   </body>
 </html>
+
+```

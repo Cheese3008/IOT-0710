@@ -2,6 +2,7 @@ package com.lngbaotran.lab306.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 public class Device {
@@ -11,22 +12,20 @@ public class Device {
 
     private String name;
     private String topic;
-    private String status; // Trạng thái chung ON/OFF của thiết bị
-
-    // --- DỮ LIỆU CẢM BIẾN ---
-    private Double temperature;
-    private Double humidity;
-    private Integer lightLevel; // lux
+    private String status; // ON/OFF
 
     // --- DỮ LIỆU ĐIỀU KHIỂN & HỆ THỐNG ---
-    private String lightStatus = "OFF"; // Trạng thái đèn
-    private String fanStatus = "OFF"; // Trạng thái quạt
+    private String lightStatus = "OFF";
+    private String fanStatus = "OFF";
     private String firmwareVersion = "v1.0.0";
-    private Integer wifiSignal; // dBm
-    private LocalDateTime lastSeen; // Thời điểm cuối cùng nhận được dữ liệu
+    private Integer wifiSignal;
+    private LocalDateTime lastSeen;
 
-    // --- Getters and Setters cho tất cả các trường ---
+    // --- Quan hệ với Telemetry ---
+    @OneToMany(mappedBy = "device", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Telemetry> telemetryList;
 
+    // --- Getters và Setters ---
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -38,15 +37,6 @@ public class Device {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
-
-    public Double getTemperature() { return temperature; }
-    public void setTemperature(Double temperature) { this.temperature = temperature; }
-
-    public Double getHumidity() { return humidity; }
-    public void setHumidity(Double humidity) { this.humidity = humidity; }
-
-    public Integer getLightLevel() { return lightLevel; }
-    public void setLightLevel(Integer lightLevel) { this.lightLevel = lightLevel; }
 
     public String getLightStatus() { return lightStatus; }
     public void setLightStatus(String lightStatus) { this.lightStatus = lightStatus; }
@@ -62,4 +52,7 @@ public class Device {
 
     public LocalDateTime getLastSeen() { return lastSeen; }
     public void setLastSeen(LocalDateTime lastSeen) { this.lastSeen = lastSeen; }
+
+    public List<Telemetry> getTelemetryList() { return telemetryList; }
+    public void setTelemetryList(List<Telemetry> telemetryList) { this.telemetryList = telemetryList; }
 }
