@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>IoT Lab Monitor — Real-time Dashboard</title>
+
+    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <style>
+      :root {
+        --bg: linear-gradient(135deg, #e6f0ff, #f7fbff);
+        --card: rgba(255, 255, 255, 0.9);
+        --muted: #6b7280;
+        --accent: #6366f1;
+        --success: #10b981;
+        --danger: #ef4444;
+      }
+      [data-theme="dark"] {
+        --bg: linear-gradient(135deg, #0f1724, #071029);
+        --card: rgba(6, 8, 20, 0.75);
+        --muted: #9ca3af;
+        --accent: #7c3aed;
+        color: #e6eef8;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, system-ui;
+        background: var(--bg);
+        color: #0f1724;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+        padding: 24px;
+        transition: background 0.5s ease;
+      }
+
+      .topbar {
+        width: 100%;
+        max-width: 1200px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .logo {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--accent), #a78bfa);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 18px;
+        box-shadow: 0 4px 10px rgba(99, 102, 241, 0.4);
+      }
+
+      .btn {
+        background: linear-gradient(135deg, var(--accent), #8b5cf6);
+        color: white;
+        border: 0;
+        padding: 8px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.25s ease;
+        box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(99, 102, 241, 0.4);
+        filter: brightness(1.1);
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+      .btn.ghost {
+        background: transparent;
+        color: var(--accent);
+        border: 1px solid rgba(99, 102, 241, 0.4);
+        box-shadow: none;
+      }
+
+      .main {
+        width: 100%;
+        max-width: 1200px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+      .card {
+        background: var(--card);
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: 0 10px 30px rgba(2, 6, 23, 0.06);
+        backdrop-filter: blur(6px);
+        transition: transform 0.2s ease;
+      }
+      .card:hover {
+        transform: translateY(-3px);
+      }
+
+      .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+      }
+      .metric-title {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .metric-value {
+        font-weight: 700;
+        font-size: 1.05rem;
+      }
+
+      .status-pill {
+        padding: 8px 12px;
+        border-radius: 999px;
+        color: white;
+        font-weight: 700;
+      }
+      .connected {
+        background: var(--success);
+      }
+      .disconnected {
+        background: var(--danger);
+      }
+      .online {
+        background: #06b6d4;
+      }
+      .offline {
+        background: var(--muted);
+      }
+
+      .chart-wrap {
+        height: 300px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      canvas {
+        max-width: 90%;
+        max-height: 100%;
+      }
+
+      .flash {
+        animation: flash 0.4s ease;
+      }
+      @keyframes flash {
+        from {
+          box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.1);
+        }
+        to {
+          box-shadow: none;
+        }
+      }
+    </style>
+  </head>
+
+  <body data-theme="light">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">I</div>
+        <div>
+          <h1 style="margin: 0; font-size: 1.3rem">IoT Lab Monitor</h1>
+          <div style="font-size: 0.85rem; color: var(--muted)">
+            Real-time dashboard
+          </div>
+        </div>
+      </div>
+      <button id="toggleTheme" class="btn ghost">Dark</button>
+    </div>
+
+    <div class="main">
+      <div class="grid">
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong>Broker</strong>
+              <div style="font-size: 0.85rem; color: var(--muted)">Connection</div>
+            </div>
+            <div id="brokerPill" class="status-pill disconnected">Disconnected</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong>Device</strong>
+              <div style="font-size: 0.85rem; color: var(--muted)">ESP32 status</div>
+            </div>
+            <div id="devicePill" class="status-pill offline">Offline</div>
+          </div>
+          <div style="margin-top: 12px">
+            <div class="metric-row"><div class="metric-title">Firmware</div><div id="fwVal" class="metric-value">--</div></div>
+            <div class="metric-row"><div class="metric-title">WiFi</div><div id="rssiVal" class="metric-value">-- dBm</div></div>
+            <div class="metric-row"><div class="metric-title">Uptime</div><div id="uptimeVal" class="metric-value">-- s</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div><strong>Sensors</strong><div style="font-size: 0.85rem; color: var(--muted)">Latest values</div></div>
+          <div style="margin-top: 12px">
+            <div id="tempRow" class="metric-row"><div class="metric-title">Temperature</div><div id="tempVal" class="metric-value">-- °C</div></div>
+            <div id="humRow" class="metric-row"><div class="metric-title">Humidity</div><div id="humVal" class="metric-value">-- %</div></div>
+            <div id="luxRow" class="metric-row"><div class="metric-title">Light</div><div id="luxVal" class="metric-value">-- lux</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div><strong>Controls</strong><div style="font-size: 0.85rem; color: var(--muted)">Light & Fan</div></div>
+          <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>Light</div>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <div id="lightState" style="padding: 8px 12px; border-radius: 10px; background: var(--muted); color: white; font-weight: 700;">OFF</div>
+                <button id="btnLightToggle" class="btn">Toggle</button>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>Fan</div>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <div id="fanState" style="padding: 8px 12px; border-radius: 10px; background: var(--muted); color: white; font-weight: 700;">OFF</div>
+                <button id="btnFanToggle" class="btn">Toggle</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Biểu đồ -->
+      <div class="card">
+        <div><strong>Sensor Chart</strong><div style="font-size: 0.85rem; color: var(--muted)">Temp / Humidity / Light (20 samples)</div></div>
+        <div class="chart-wrap"><canvas id="sensorChart"></canvas></div>
+      </div>
+    </div>
+
+    <script>
+      const MQTT_URL = "wss://broker.hivemq.com:8884/mqtt";
+      const TOPIC_NS = "demo/room1";
+      const topics = {
+        sensor: `${TOPIC_NS}/sensor/state`,
+        device: `${TOPIC_NS}/device/state`,
+        info: `${TOPIC_NS}/sys/info`,
+        online: `${TOPIC_NS}/sys/online`,
+        cmd: `${TOPIC_NS}/device/cmd`,
+      };
+
+      let client = null;
+      const MAX_POINTS = 20;
+      const data = { labels: [], temp: [], hum: [], lux: [] };
+
+      const brokerPill = document.getElementById("brokerPill");
+      const devicePill = document.getElementById("devicePill");
+      const tempVal = document.getElementById("tempVal");
+      const humVal = document.getElementById("humVal");
+      const luxVal = document.getElementById("luxVal");
+      const fwVal = document.getElementById("fwVal");
+      const rssiVal = document.getElementById("rssiVal");
+      const uptimeVal = document.getElementById("uptimeVal");
+      const lightState = document.getElementById("lightState");
+      const fanState = document.getElementById("fanState");
+      const btnLightToggle = document.getElementById("btnLightToggle");
+      const btnFanToggle = document.getElementById("btnFanToggle");
+      const toggleTheme = document.getElementById("toggleTheme");
+
+      function flash(el) {
+        el.classList.add("flash");
+        setTimeout(() => el.classList.remove("flash"), 400);
+      }
+
+      function initChart() {
+        const ctx = document.getElementById("sensorChart");
+        window.chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: data.labels,
+            datasets: [
+              { label: "Temp (°C)", data: data.temp, borderColor: "#ef4444", tension: 0.3 },
+              { label: "Humidity (%)", data: data.hum, borderColor: "#2563eb", tension: 0.3 },
+              { label: "Light (lux)", data: data.lux, borderColor: "#f59e0b", tension: 0.3 },
+            ],
+          },
+          options: {
+            responsive: true,
+            animation: { duration: 500, easing: "easeOutQuart" },
+            plugins: { legend: { position: "bottom" } },
+            scales: {
+              x: { display: false },
+              y: {
+                beginAtZero: true,
+                min: 0,
+                max: 800,
+                ticks: { stepSize: 25, color: "#6b7280" },
+                grid: { color: "rgba(0,0,0,0.05)" },
+              },
+            },
+          },
+        });
+      }
+      function connect() {
+        client = mqtt.connect(MQTT_URL, { clientId: "web_" + Math.random().toString(16).slice(2, 8) });
+        client.on("connect", () => {
+          brokerPill.textContent = "Connected";
+          brokerPill.className = "status-pill connected";
+          Object.values(topics).forEach((t) => client.subscribe(t));
+        });
+        client.on("message", (topic, msg) => {
+          try { handleIncoming(topic, JSON.parse(msg.toString())); } catch (e) {}
+        });
+        client.on("close", () => {
+          brokerPill.textContent = "Disconnected";
+          brokerPill.className = "status-pill disconnected";
+        });
+      }
+
+      function handleIncoming(topic, json) {
+        if (topic === topics.sensor) {
+          const t = parseFloat(json.temp_c), h = parseFloat(json.humidity), l = parseFloat(json.light_lux);
+          const time = new Date().toLocaleTimeString();
+          data.labels.push(time); data.temp.push(t); data.hum.push(h); data.lux.push(l);
+          if (data.labels.length > MAX_POINTS) { data.labels.shift(); data.temp.shift(); data.hum.shift(); data.lux.shift(); }
+          tempVal.textContent = t.toFixed(1) + " °C";
+          humVal.textContent = h.toFixed(1) + " %";
+          luxVal.textContent = l + " lux";
+          flash(tempVal.parentElement); flash(humVal.parentElement); flash(luxVal.parentElement);
+          chart.update();
+        } else if (topic === topics.device) {
+          const light = json.light, fan = json.fan;
+          updateToggleState(lightState, light);
+          updateToggleState(fanState, fan);
+        } else if (topic === topics.info) {
+          fwVal.textContent = json.firmware || "--";
+          rssiVal.textContent = json.wifi_signal + " dBm";
+          uptimeVal.textContent = json.uptime + " s";
+        } else if (topic === topics.online) {
+          const st = !!json.online;
+          devicePill.textContent = st ? "Online" : "Offline";
+          devicePill.className = "status-pill " + (st ? "online" : "offline");
+        }
+      }
+
+      function updateToggleState(el, state) {
+        el.textContent = state.toUpperCase();
+        el.style.background = state !== "off" ? "var(--success)" : "var(--muted)";
+      }
+
+      btnLightToggle.onclick = () => {
+        if (client)
+          client.publish(topics.cmd, JSON.stringify({ light: lightState.textContent === "ON" ? "off" : "on" }));
+      };
+
+      btnFanToggle.onclick = () => {
+        if (client)
+          client.publish(topics.cmd, JSON.stringify({ fan: fanState.textContent === "ON" ? "off" : "on" }));
+      };
+
+      toggleTheme.onclick = () => {
+        const root = document.body;
+        const cur = root.getAttribute("data-theme");
+        if (cur === "dark") { root.setAttribute("data-theme", "light"); toggleTheme.textContent = "Dark"; }
+        else { root.setAttribute("data-theme", "dark"); toggleTheme.textContent = "Light"; }
+      };
+
+      window.addEventListener("load", () => {
+        initChart();
+        connect();
+      });
+    </script>
+  </body>
+</html>
